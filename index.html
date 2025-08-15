@@ -100,6 +100,40 @@
             color: #2d3047;
         }
         
+        .input-group select {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #2d3047;
+            cursor: pointer;
+        }
+        
+        .color-picker-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+        
+        .color-picker-group input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 0;
+        }
+        
+        .color-picker-group span {
+            color: #2d3047;
+            font-weight: 500;
+        }
+        
         .input-group textarea {
             min-height: 150px;
             resize: vertical;
@@ -228,6 +262,34 @@
                     <textarea id="text-data" placeholder="Masukkan teks atau URL...">https://example.com</textarea>
                 </div>
                 
+                <div class="input-group">
+                    <label for="qr-style">Style QR Code:</label>
+                    <select id="qr-style">
+                        <option value="square">Kotak (Default)</option>
+                        <option value="rounded">Rounded</option>
+                        <option value="dots">Dots</option>
+                        <option value="love">Love ❤️</option>
+                        <option value="star">Star ⭐</option>
+                        <option value="circle">Circle</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="color-dark">Warna QR Code:</label>
+                    <div class="color-picker-group">
+                        <input type="color" id="color-dark" value="#000000">
+                        <span>Foreground</span>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="color-light">Warna Background:</label>
+                    <div class="color-picker-group">
+                        <input type="color" id="color-light" value="#ffffff">
+                        <span>Background</span>
+                    </div>
+                </div>
+                
                 <button class="btn-generate" id="generate-btn">
                     <i class="fas fa-bolt"></i> Generate QR Code
                 </button>
@@ -280,6 +342,9 @@
             // Generate QR Code function
             function generateQRCode() {
                 let data = textData.value.trim();
+                const style = qrStyle.value;
+                const darkColor = colorDark.value;
+                const lightColor = colorLight.value;
                 
                 if (!data) {
                     alert('Masukkan teks atau URL terlebih dahulu!');
@@ -295,15 +360,171 @@
                 // Clear previous QR code
                 qrcodeDiv.innerHTML = '';
                 
-                // Generate new QR code
+                // Generate QR code based on style
+                if (style === 'love' || style === 'star' || style === 'circle') {
+                    generateCustomShapeQR(data, style, darkColor, lightColor);
+                } else {
+                    generateStandardQR(data, style, darkColor, lightColor);
+                }
+            }
+            
+            // Generate standard QR code with different dot styles
+            function generateStandardQR(data, style, darkColor, lightColor) {
                 const qr = new QRCode(qrcodeDiv, {
                     text: data,
                     width: 200,
                     height: 200,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
+                    colorDark: darkColor,
+                    colorLight: lightColor,
                     correctLevel: QRCode.CorrectLevel.H
                 });
+                
+                // Apply custom styles after generation
+                setTimeout(() => {
+                    const canvas = qrcodeDiv.querySelector('canvas');
+                    if (canvas && style !== 'square') {
+                        applyCanvasStyle(canvas, style);
+                    }
+                }, 100);
+            }
+            
+            // Generate custom shape QR codes
+            function generateCustomShapeQR(data, shape, darkColor, lightColor) {
+                // Create a temporary QR code to get the data
+                const tempDiv = document.createElement('div');
+                const tempQR = new QRCode(tempDiv, {
+                    text: data,
+                    width: 200,
+                    height: 200,
+                    colorDark: darkColor,
+                    colorLight: lightColor,
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                setTimeout(() => {
+                    const tempCanvas = tempDiv.querySelector('canvas');
+                    if (tempCanvas) {
+                        createShapeQR(tempCanvas, shape, darkColor, lightColor);
+                    }
+                }, 100);
+            }
+            
+            // Apply different styles to canvas
+            function applyCanvasStyle(canvas, style) {
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Redraw with custom style
+                const moduleSize = canvas.width / 25; // Assuming 25x25 modules
+                
+                for (let y = 0; y < 25; y++) {
+                    for (let x = 0; x < 25; x++) {
+                        const pixelIndex = (y * Math.floor(canvas.height / 25) * canvas.width + x * Math.floor(canvas.width / 25)) * 4;
+                        
+                        if (data[pixelIndex] === 0) { // Dark pixel
+                            const centerX = x * moduleSize + moduleSize / 2;
+                            const centerY = y * moduleSize + moduleSize / 2;
+                            
+                            ctx.fillStyle = colorDark.value;
+                            
+                            switch (style) {
+                                case 'rounded':
+                                    ctx.beginPath();
+                                    ctx.roundRect(x * moduleSize + 1, y * moduleSize + 1, moduleSize - 2, moduleSize - 2, moduleSize / 4);
+                                    ctx.fill();
+                                    break;
+                                case 'dots':
+                                    ctx.beginPath();
+                                    ctx.arc(centerX, centerY, moduleSize / 3, 0, 2 * Math.PI);
+                                    ctx.fill();
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Create shape-based QR codes
+            function createShapeQR(sourceCanvas, shape, darkColor, lightColor) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 200;
+                canvas.height = 200;
+                const ctx = canvas.getContext('2d');
+                
+                // Fill background
+                ctx.fillStyle = lightColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Get source data
+                const sourceCtx = sourceCanvas.getContext('2d');
+                const sourceData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+                
+                ctx.fillStyle = darkColor;
+                const moduleSize = canvas.width / 25;
+                
+                for (let y = 0; y < 25; y++) {
+                    for (let x = 0; x < 25; x++) {
+                        const pixelIndex = (y * Math.floor(sourceCanvas.height / 25) * sourceCanvas.width + x * Math.floor(sourceCanvas.width / 25)) * 4;
+                        
+                        if (sourceData.data[pixelIndex] === 0) { // Dark pixel
+                            const centerX = x * moduleSize + moduleSize / 2;
+                            const centerY = y * moduleSize + moduleSize / 2;
+                            
+                            switch (shape) {
+                                case 'love':
+                                    drawHeart(ctx, centerX, centerY, moduleSize / 3);
+                                    break;
+                                case 'star':
+                                    drawStar(ctx, centerX, centerY, moduleSize / 3);
+                                    break;
+                                case 'circle':
+                                    ctx.beginPath();
+                                    ctx.arc(centerX, centerY, moduleSize / 3, 0, 2 * Math.PI);
+                                    ctx.fill();
+                                    break;
+                            }
+                        }
+                    }
+                }
+                
+                qrcodeDiv.appendChild(canvas);
+            }
+            
+            // Draw heart shape
+            function drawHeart(ctx, x, y, size) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(size / 10, size / 10);
+                ctx.beginPath();
+                ctx.moveTo(0, 3);
+                ctx.bezierCurveTo(-5, -2, -15, -2, -15, 5);
+                ctx.bezierCurveTo(-15, 12, 0, 20, 0, 20);
+                ctx.bezierCurveTo(0, 20, 15, 12, 15, 5);
+                ctx.bezierCurveTo(15, -2, 5, -2, 0, 3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            // Draw star shape
+            function drawStar(ctx, x, y, size) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * 4 * Math.PI) / 5;
+                    const x1 = Math.cos(angle) * size;
+                    const y1 = Math.sin(angle) * size;
+                    if (i === 0) ctx.moveTo(x1, y1);
+                    else ctx.lineTo(x1, y1);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
             }
             
             // Download PNG
